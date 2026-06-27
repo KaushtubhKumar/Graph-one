@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../db/supabaseClient';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiException } from '../utils/ApiException';
 import { cache, TTL } from '../utils/ttlCache';

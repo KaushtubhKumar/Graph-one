@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../db/supabaseClient';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiException } from '../utils/ApiException';
 import { cache, TTL } from '../utils/ttlCache';
@@ -15,9 +15,12 @@ router.get('/trending', asyncHandler(async (_req: Request, res: Response) => {
 
   const { data, error } = await supabase
     .from('companies')
-    .select('id, name, slug, logo_url, category, stage, total_funding_usd, employee_count, last_funding_at, data_confidence_score, growth_score, hq_city, hq_country, is_unicorn');
+    .select('id, name, slug, logo_url, categories, stage, total_funding_usd, employee_count, last_funding_at, data_confidence_score, growth_score, hq_city, hq_country, is_unicorn');
 
-  if (error) throw new ApiException(500, 'DB_ERROR', error.message);
+  if (error) {
+    console.error("Supabase Error Details:", error);
+    throw new ApiException(500, 'DB_ERROR', error.message);
+  }
 
   const scored = (data ?? [])
     .map((c) => ({ ...c, trending_score: computeTrendingScore(c) }))
@@ -72,7 +75,7 @@ router.get('/:slug/graph', asyncHandler(async (req: Request, res: Response) => {
 
   const { data: company, error: ce } = await supabase
     .from('companies')
-    .select('id, name, slug, logo_url, category')
+    .select('id, name, slug, logo_url, categories')
     .eq('slug', req.params.slug)
     .single();
   if (ce || !company) throw new ApiException(404, 'NOT_FOUND', `Company '${req.params.slug}' not found.`);
@@ -96,8 +99,8 @@ router.get('/:slug/graph', asyncHandler(async (req: Request, res: Response) => {
   // Competitors (same category, different company)
   const { data: competitors } = await supabase
     .from('companies')
-    .select('id, name, slug, logo_url, category, stage')
-    .eq('category', company.category)
+    .select('id, name, slug, logo_url, categories, stage')
+    .eq('categories', company.categories)
     .neq('id', company.id)
     .limit(6);
 

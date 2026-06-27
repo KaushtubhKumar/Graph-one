@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../db/supabaseClient';
 import { apiKeyAuth } from '../middleware/apiKeyAuth';
 import { createNewsSchema, updateNewsSchema } from '../types/founders-products-news.schema';
 import { asyncHandler } from '../utils/asyncHandler';

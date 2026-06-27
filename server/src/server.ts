@@ -1,7 +1,5 @@
-import { createApp } from "./app";
+import app from "./app"; // Import the default export directly
 import { env } from "./utils/env";
-
-const app = createApp();
 
 app.listen(env.PORT, () => {
   console.log(`GraphOne API listening on http://localhost:${env.PORT}`);
