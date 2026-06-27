@@ -1,39 +1,72 @@
-import express from "express";
-import cors from "cors";
-import helmet from "helmet";
-import morgan from "morgan";
-import compression from "compression";
-import { env } from "./utils/env";
-import companiesRoutes from "./routes/companies.routes";
-import investorsRoutes from "./routes/investors.routes";
-import fundingRoundsRoutes from "./routes/fundingRounds.routes";
-import statsRoutes from "./routes/stats.routes";
-import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+/**
+ * app.ts — drop this into src/ (or merge into your existing app.ts/index.ts)
+ *
+ * Adds all missing routes on top of your existing companies/investors/funding-rounds setup.
+ * Apply rate limiter globally. Auth middleware is applied per-route (only on writes).
+ */
 
-export function createApp() {
-  const app = express();
+import express from 'express';
+import cors from 'cors';
 
-  app.use(helmet());
-  app.use(
-    cors({
-      origin: env.CORS_ORIGIN === "*" ? true : env.CORS_ORIGIN.split(","),
-    })
-  );
-  app.use(compression());
-  app.use(express.json({ limit: "1mb" }));
-  app.use(morgan(env.NODE_ENV === "development" ? "dev" : "combined"));
+// ── Existing routes (keep as-is) ─────────────────────────────────────────────
+// import companiesRouter from './routes/companies';
+// import investorsRouter from './routes/investors';
+// import fundingRoundsRouter from './routes/fundingRounds';
 
-  app.get("/health", (_req, res) => {
-    res.json({ status: "ok", service: "graphone-api", time: new Date().toISOString() });
-  });
+// ── New middleware ────────────────────────────────────────────────────────────
+import { rateLimiter } from './middleware/rateLimiter';
 
-  app.use("/api/companies", companiesRoutes);
-  app.use("/api/investors", investorsRoutes);
-  app.use("/api/funding-rounds", fundingRoundsRoutes);
-  app.use("/api/stats", statsRoutes);
+// ── New routes ────────────────────────────────────────────────────────────────
+import foundersRouter from './routes/founders';
+import productsRouter from './routes/products';
+import newsRouter from './routes/news';
+import companiesExtendedRouter from './routes/companiesExtended';
+import investorsExtendedRouter from './routes/investorsExtended';
+import searchRouter from './routes/search';
+import feedRouter from './routes/feed';
+import statsRouter from './routes/stats';
 
-  app.use(notFoundHandler);
-  app.use(errorHandler);
+const app = express();
 
-  return app;
-}
+app.use(cors());
+app.use(express.json());
+
+// ── Apply rate limiter globally ───────────────────────────────────────────────
+app.use(rateLimiter);
+
+// ── Health ────────────────────────────────────────────────────────────────────
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+// ── Existing routers (your existing code — keep) ──────────────────────────────
+// app.use('/api/companies', companiesRouter);
+// app.use('/api/investors', investorsRouter);
+// app.use('/api/funding-rounds', fundingRoundsRouter);
+
+// ── Mount new sub-routes BEFORE the existing :slug catch-all ─────────────────
+// IMPORTANT: companiesExtendedRouter must be mounted BEFORE your existing
+// /api/companies router so that /trending, /:slug/funding etc. are matched first.
+app.use('/api/companies', companiesExtendedRouter);
+app.use('/api/investors', investorsExtendedRouter);
+
+// ── New entity routers ────────────────────────────────────────────────────────
+app.use('/api/founders', foundersRouter);
+app.use('/api/products', productsRouter);
+app.use('/api/news', newsRouter);
+
+// ── Utility routers ───────────────────────────────────────────────────────────
+app.use('/api/search', searchRouter);
+app.use('/api/feed', feedRouter);
+app.use('/api/stats', statsRouter);
+
+// ── Global error handler ──────────────────────────────────────────────────────
+// Add this AFTER all routes in your existing app.ts if not already present:
+// import { ApiException } from './utils/ApiException';
+// app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+//   if (err instanceof ApiException) {
+//     return res.status(err.status).json({ error: { code: err.code, message: err.message } });
+//   }
+//   console.error(err);
+//   res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Unexpected error.' } });
+// });
+
+export default app;
